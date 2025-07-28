@@ -8,6 +8,7 @@ from collections import defaultdict
 # Global variables user can change
 Repetitions = 20  # Number of times to rerun each simulation scenario with the same parameter values. Max is hardware dependent.
 generations = 100000000  # Maximum number of generations to run each simulation attempt. Prevents endless runs. Set to a small number to view short initial trajectories or for debugging.
+document_results_every_generation = True  # New global variable to control per-generation output
 
 # Prevent system sleep on Windows (useful for long overnight runs)
 if os.name == 'nt':
@@ -31,6 +32,14 @@ def results_headings():
     which stores results for each individual simulation repetition.
     """
     return "SimNr;Rep;Ni;r;K;N_A_fix;N_a_fix;N_B_fix;N_b_fix;s_A;s_B;attempts;h_A;h_B;p_A_i;p_B_i;Prob_A_fix;sd_A_fix;Aver_A_gen;sd_A_gen;Prob_a_fix;sd_a_fix;Aver_a_gen;sd_a_gen;Prob_B_fix;sd_B_fix;Aver_B_gen;sd_B_gen;Prob_b_fix;sd_b_fix;Aver_b_gen;sd_b_gen;Total_Gens"
+
+# ! New function to define headings for per-generation results
+def per_generation_headings():
+    """
+    Defines the column headings for the results_data_per_generation.txt file,
+    which stores per-generation data when document_results_every_generation is True.
+    """
+    return "SimNr;attempt;Rep;Ni;r;K;s_A;h_A;p_A_i;s_B;h_B;p_B_i;attempts;generation;N;freq_A;freq_Aa;freq_a;freq_B;freq_Bb;freq_b;total_heteroz"
 
 output_headings_avg = "SimNr;Reps;Ni;r;K;N_A_fix;N_a_fix;N_B_fix;N_b_fix;s_A;s_B;attempts;h_A;h_B;p_A_i;p_B_i;Prob_A_fix;sd_A_fix;Aver_A_gen;sd_A_gen;Prob_a_fix;sd_a_fix;Aver_a_gen;sd_a_gen;Prob_B_fix;sd_B_fix;Aver_B_gen;sd_B_gen;Prob_b_fix;sd_b_fix;Aver_b_gen;sd_b_gen;Avg_Total_Gens;Avg_Total_N"
 results_filename_avg = "results_data_avg.txt"
@@ -197,7 +206,7 @@ if error_found:
     print("Please correct the errors in input_data.txt and rerun the program.")
     sys.exit(0)
 
-def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, attempts, h_A, h_B):
+def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, attempts, h_A, h_B, sim_idx, rep):
     """
     Simulates population and allele frequency dynamics for two unlinked genes (A and B) over multiple attempts.
 
@@ -213,11 +222,16 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
         attempts (int): Number of independent simulation runs for these parameters.
         h_A (float): Dominance coefficient for allele A.
         h_B (float): Dominance coefficient for allele B.
+        sim_idx (int): Simulation number (index from input_data.txt). # ! Added for per-generation output
+        rep (int): Repetition number. # ! Added for per-generation output
 
     Returns:
         tuple: A collection of aggregated statistics across all attempts, including
                fixation probabilities, average fixation times, and final population sizes.
     """
+    # ! Initialize list to store per-generation data if enabled
+    per_gen_data = [] if document_results_every_generation else None
+
     # Initialize counters for aggregating results across all simulation attempts
     A_count = 0  # Number of times allele 'A' fixed
     a_count = 0  # Number of times allele 'a' (A's alternative) fixed (meaning A was lost)
@@ -278,6 +292,24 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
 
         # Main simulation loop: iterate through generations
         for gen in range(total_generations):
+            # ! Record per-generation data at the start of each generation
+            if document_results_every_generation:
+                # Calculate genotype frequencies for Gene A
+                freq_A = p_A_t
+                freq_Aa = 2.0 * p_A_t * (1.0 - p_A_t)
+                freq_a = 1.0 - p_A_t
+                # Calculate genotype frequencies for Gene B
+                freq_B = p_B_t
+                freq_Bb = 2.0 * p_B_t * (1.0 - p_B_t)
+                freq_b = 1.0 - p_B_t
+                # Calculate total heterozygosity
+                total_heteroz = freq_Aa + freq_Bb
+                # Append data for this generation
+                per_gen_data.append((
+                    sim_idx, i + 1, rep, Ni, r, K, s_A, h_A, p_A_i, s_B, h_B, p_B_i, attempts,
+                    gen, N, freq_A, freq_Aa, freq_a, freq_B, freq_Bb, freq_b, total_heteroz
+                ))
+
             # --- Check for Fixation/Loss of Gene A before calculations ---
             # This check is performed early to potentially skip calculations for fixed genes.
             if not (A_fixed_this_attempt or a_fixed_this_attempt):
@@ -467,7 +499,8 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
             B_fix_prob, B_fix_sd, avg_B_fix_gen, std_B_fix_gen,
             b_fix_prob, b_fix_sd, avg_b_fix_gen, std_b_fix_gen,
             avg_total_generations,
-            avg_total_N)
+            avg_total_N,
+            per_gen_data)  # ! Return per-generation data
 
 def worker(job):
     """
@@ -475,7 +508,7 @@ def worker(job):
     Unpacks job parameters, runs simulation, and returns results.
     """
     idx, rep, Ni, r, K, s_A, attempts, h_A, p_A_i, s_B, h_B, p_B_i = job
-    results = simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, generations, attempts, h_A, h_B)
+    results = simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, generations, attempts, h_A, h_B, idx, rep)  # ! Pass idx and rep
     
     # Unpack results from simulate_population
     (avg_N_A, avg_N_a, avg_N_B, avg_N_b, 
@@ -483,7 +516,8 @@ def worker(job):
      a_fix_prob, a_fix_sd, avg_a_fix_gen, std_a_fix_gen,
      B_fix_prob, B_fix_sd, avg_B_fix_gen, std_B_fix_gen,
      b_fix_prob, b_fix_sd, avg_b_fix_gen, std_b_fix_gen,
-     avg_total_generations, avg_total_N) = results
+     avg_total_generations, avg_total_N,
+     per_gen_data) = results  # ! Include per_gen_data
 
     # Return all parameters and calculated results for this specific job
     return (idx, rep, Ni, r, K, 
@@ -493,7 +527,8 @@ def worker(job):
             a_fix_prob, a_fix_sd, avg_a_fix_gen, std_a_fix_gen,
             B_fix_prob, B_fix_sd, avg_B_fix_gen, std_B_fix_gen,
             b_fix_prob, b_fix_sd, avg_b_fix_gen, std_b_fix_gen,
-            avg_total_generations, avg_total_N)
+            avg_total_generations, avg_total_N,
+            per_gen_data)  # ! Include per_gen_data
 
 # --- Main execution block for multiprocessing ---
 if __name__ == '__main__':
@@ -517,6 +552,27 @@ if __name__ == '__main__':
     # Sorting by SimNr (x[0]) and then Repetition (x[1]) ensures that all repetitions
     # for a given scenario are grouped together.
     individual_results_sorted = sorted(results, key=lambda x: (x[0], x[1]))
+    
+    # ! Write per-generation results if enabled
+    if document_results_every_generation:
+        per_gen_filename = "results_data_per_generation.txt"
+        with open(per_gen_filename, "w") as f:
+            f.write(per_generation_headings() + "\n")
+            # Collect and sort all per-generation data
+            all_per_gen_data = []
+            for res in individual_results_sorted:
+                per_gen_data = res[-1]  # Last element is per_gen_data
+                if per_gen_data:
+                    all_per_gen_data.extend(per_gen_data)
+            # Sort by SimNr, attempt, Rep, generation
+            all_per_gen_data_sorted = sorted(all_per_gen_data, key=lambda x: (x[0], x[1], x[2], x[13]))
+            for rec in all_per_gen_data_sorted:
+                line = (f"{rec[0]};{rec[1]};{rec[2]};{rec[3]};{rec[4]};{rec[5]};"
+                        f"{rec[6]};{rec[7]:.8f};{rec[8]:.8f};{rec[9]};{rec[10]:.8f};{rec[11]:.8f};{rec[12]};"
+                        f"{rec[13]};{rec[14]};{rec[15]:.8f};{rec[16]:.8f};{rec[17]:.8f};"
+                        f"{rec[18]:.8f};{rec[19]:.8f};{rec[20]:.8f};{rec[21]:.8f}")
+                f.write(line + "\n")
+        print(f"Per-generation results stored in file: {per_gen_filename}.")
     
     # Group and average results over all the Repetitions for each simulation scenario.
     grouped_results = defaultdict(list) # Use defaultdict to easily append results to lists
