@@ -176,6 +176,11 @@ def complete_and_average_by_generation_optimized(raw_data, metadata, N_map):
             values_array = np.array(gen_arrays[gen])
             avg = np.mean(values_array, axis=0)
             
+            # Keep the original averaged heterozygote frequencies
+            # avg[1] = Ave_freq_Aa (direct average of freq_Aa across reps)
+            # avg[4] = Ave_freq_Bb (direct average of freq_Bb across reps)
+            # avg[6] = total_heteroz (direct average of total_heteroz across reps)
+            
             # Get N value
             N_key = (SimNr, attempt, gen)
             if N_key in N_map:
@@ -258,6 +263,11 @@ def compute_per_simulation_averages_optimized(attempt_rows):
         for gen in range(max_gen_sim + 1):
             values_array = np.array(gen_dict[gen])
             avg = np.mean(values_array, axis=0)
+            
+            # Keep the original averaged heterozygote frequencies
+            # avg[1] = Ave_freq_Aa (average of Ave_freq_Aa across attempts)
+            # avg[4] = Ave_freq_Bb (average of Ave_freq_Bb across attempts)
+            # avg[6] = total_heteroz (average of total_heteroz across attempts)
             
             # Get N value
             max_g = max(g for (s, g) in N_map.keys() if s == SimNr)
