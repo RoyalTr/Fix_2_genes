@@ -22,7 +22,7 @@ def pad_and_average_reps(rep_data_list, max_generations):
     max_generations: Maximum generation across all Reps in this (SimNr, attempt)
     """
     n_reps = len(rep_data_list)
-    n_features = 7  # freq_A, freq_Aa, freq_a, freq_B, freq_Bb, freq_b, total_heteroz
+    n_features = 8  # freq_A, freq_Aa, freq_a, freq_B, freq_Bb, freq_b, pan_heteroz, pan_homoz
     
     # Pre-allocate result array
     result = np.zeros((max_generations + 1, n_features))
@@ -54,10 +54,10 @@ def create_generation_lookup(entries):
             max_gen = gen
     
     # Initialize with -1 to indicate missing data
-    lookup = np.full((max_gen + 1, 7), -999.0)
+    lookup = np.full((max_gen + 1, 8), -999.0)
     
     for gen, vals in entries:
-        for i in range(7):
+        for i in range(8):
             lookup[gen, i] = vals[i]
     
     return lookup, max_gen
@@ -81,7 +81,7 @@ def load_data_optimized():
         # Pre-define column indices for faster access
         col_indices = [idx[col] for col in [
             'freq_A', 'freq_Aa', 'freq_a',
-            'freq_B', 'freq_Bb', 'freq_b', 'total_heteroz']]
+            'freq_B', 'freq_Bb', 'freq_b', 'pan_heteroz', 'pan_homoz']]
         
         meta_indices = [idx[col] for col in [
             'Ni', 'r', 'K', 's_A', 'h_A', 'p_A_i', 
@@ -179,7 +179,8 @@ def complete_and_average_by_generation_optimized(raw_data, metadata, N_map):
             # Keep the original averaged heterozygote frequencies
             # avg[1] = Ave_freq_Aa (direct average of freq_Aa across reps)
             # avg[4] = Ave_freq_Bb (direct average of freq_Bb across reps)
-            # avg[6] = total_heteroz (direct average of total_heteroz across reps)
+            # avg[6] = pan_heteroz (direct average of pan_heteroz across reps)
+            # avg[7] = pan_homoz (direct average of pan_homoz across reps)
             
             # Get N value
             N_key = (SimNr, attempt, gen)
@@ -267,7 +268,8 @@ def compute_per_simulation_averages_optimized(attempt_rows):
             # Keep the original averaged heterozygote frequencies
             # avg[1] = Ave_freq_Aa (average of Ave_freq_Aa across attempts)
             # avg[4] = Ave_freq_Bb (average of Ave_freq_Bb across attempts)
-            # avg[6] = total_heteroz (average of total_heteroz across attempts)
+            # avg[6] = pan_heteroz (average of pan_heteroz across attempts)
+            # avg[7] = pan_homoz (average of pan_homoz across attempts)
             
             # Get N value
             max_g = max(g for (s, g) in N_map.keys() if s == SimNr)
@@ -281,7 +283,7 @@ def compute_per_simulation_averages_optimized(attempt_rows):
 def write_attempt_averages_optimized(rows):
     """Optimized file writing"""
     header = ('SimNr;attempt;Ni;r;K;s_A;h_A;p_A_i;s_B;h_B;p_B_i;attempts;generation;N;'
-              'Ave_freq_A;Ave_freq_Aa;Ave_freq_a;Ave_freq_B;Ave_freq_Bb;Ave_freq_b;Ave_total_heteroz\n')
+              'Ave_freq_A;Ave_freq_Aa;Ave_freq_a;Ave_freq_B;Ave_freq_Bb;Ave_freq_b;Ave_pan_heteroz;Ave_pan_homoz\n')
     
     with open(ATTEMPT_OUTPUT, 'w') as f:
         f.write(header)
@@ -292,7 +294,7 @@ def write_attempt_averages_optimized(rows):
 def write_simulation_averages_optimized(rows):
     """Optimized file writing"""
     header = ('SimNr;Ni;r;K;s_A;h_A;p_A_i;s_B;h_B;p_B_i;attempts;generation;N;'
-              'Ave_freq_A;Ave_freq_Aa;Ave_freq_a;Ave_freq_B;Ave_freq_Bb;Ave_freq_b;Ave_total_heteroz\n')
+              'Ave_freq_A;Ave_freq_Aa;Ave_freq_a;Ave_freq_B;Ave_freq_Bb;Ave_freq_b;Ave_pan_heteroz;Ave_pan_homoz\n')
     
     with open(SIM_OUTPUT, 'w') as f:
         f.write(header)

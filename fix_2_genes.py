@@ -33,13 +33,13 @@ def results_headings():
     """
     return "SimNr;Rep;Ni;r;K;N_A_fix;N_a_fix;N_B_fix;N_b_fix;s_A;s_B;attempts;h_A;h_B;p_A_i;p_B_i;Prob_A_fix;sd_A_fix;Aver_A_gen;sd_A_gen;Prob_a_fix;sd_a_fix;Aver_a_gen;sd_a_gen;Prob_B_fix;sd_B_fix;Aver_B_gen;sd_B_gen;Prob_b_fix;sd_b_fix;Aver_b_gen;sd_b_gen;Total_Gens"
 
-# ! New function to define headings for per-generation results
+# ! Modified function to include pan_homoz in per-generation results headings
 def per_generation_headings():
     """
     Defines the column headings for the results_data_per_generation.txt file,
     which stores per-generation data when document_results_every_generation is True.
     """
-    return "SimNr;attempt;Rep;Ni;r;K;s_A;h_A;p_A_i;s_B;h_B;p_B_i;attempts;generation;N;freq_A;freq_Aa;freq_a;freq_B;freq_Bb;freq_b;total_heteroz"
+    return "SimNr;attempt;Rep;Ni;r;K;s_A;h_A;p_A_i;s_B;h_B;p_B_i;attempts;generation;N;freq_A;freq_Aa;freq_a;freq_B;freq_Bb;freq_b;pan_heteroz;pan_homoz"
 
 output_headings_avg = "SimNr;Reps;Ni;r;K;N_A_fix;N_a_fix;N_B_fix;N_b_fix;s_A;s_B;attempts;h_A;h_B;p_A_i;p_B_i;Prob_A_fix;sd_A_fix;Aver_A_gen;sd_A_gen;Prob_a_fix;sd_a_fix;Aver_a_gen;sd_a_gen;Prob_B_fix;sd_B_fix;Aver_B_gen;sd_B_gen;Prob_b_fix;sd_b_fix;Aver_b_gen;sd_b_gen;Avg_Total_Gens;Avg_Total_N"
 results_filename_avg = "results_data_avg.txt"
@@ -302,12 +302,14 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
                 freq_B = p_B_t
                 freq_Bb = 2.0 * p_B_t * (1.0 - p_B_t)
                 freq_b = 1.0 - p_B_t
-                # Calculate total heterozygosity
-                total_heteroz = freq_Aa + freq_Bb
+                # Calculate pan heterozygosity
+                pan_heteroz = freq_Aa * freq_Bb
+                # Calculate pan homozygosity
+                pan_homoz = (freq_A ** 2 + freq_a ** 2) * (freq_B ** 2 + freq_b ** 2)
                 # Append data for this generation
                 per_gen_data.append((
                     sim_idx, i + 1, rep, Ni, r, K, s_A, h_A, p_A_i, s_B, h_B, p_B_i, attempts,
-                    gen, N, freq_A, freq_Aa, freq_a, freq_B, freq_Bb, freq_b, total_heteroz
+                    gen, N, freq_A, freq_Aa, freq_a, freq_B, freq_Bb, freq_b, pan_heteroz, pan_homoz
                 ))
 
             # --- Check for Fixation/Loss of Gene A before calculations ---
@@ -570,7 +572,7 @@ if __name__ == '__main__':
                 line = (f"{rec[0]};{rec[1]};{rec[2]};{rec[3]};{rec[4]};{rec[5]};"
                         f"{rec[6]};{rec[7]:.8f};{rec[8]:.8f};{rec[9]};{rec[10]:.8f};{rec[11]:.8f};{rec[12]};"
                         f"{rec[13]};{rec[14]};{rec[15]:.8f};{rec[16]:.8f};{rec[17]:.8f};"
-                        f"{rec[18]:.8f};{rec[19]:.8f};{rec[20]:.8f};{rec[21]:.8f}")
+                        f"{rec[18]:.8f};{rec[19]:.8f};{rec[20]:.8f};{rec[21]:.8f};{rec[22]:.8f}")
                 f.write(line + "\n")
         print(f"Per-generation results stored in file: {per_gen_filename}.")
     
