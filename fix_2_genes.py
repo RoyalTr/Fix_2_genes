@@ -4,6 +4,9 @@ import sys
 import time
 import multiprocessing
 from collections import defaultdict
+import warnings
+
+warnings.filterwarnings('ignore', 'Mean of empty slice', RuntimeWarning)
 
 # Global variables user can change
 Repetitions = 20  # Number of times to rerun each simulation scenario with the same parameter values. Max is hardware dependent.
@@ -368,15 +371,15 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
                     
                 break # Exit the generation loop for this attempt, move to the next 'attempt'
 
-            # --- Population Dynamics (Beverton-Holt model) ---
-            # This calculates the population size for the NEXT generation based on current N and K.
-            # This is applied for every generation unless 'r' is zero (fixed population size).
+            # Use Beverton-Holt model for logistic growth.
+            # Use stochastic rounding to avoid N being stuck when N and r are very small.
             if r != 0:
-                N = round(N * r_plus_1 / (1.0 + r_div_K * N))
-                if N < 1: # Population cannot go below 1
-                    N = 1
-                if N > K: # Population cannot exceed carrying capacity
-                    N = K
+                N_float = N * r_plus_1 / (1.0 + r_div_K * N)  # float average value
+                frac = N_float - int(N_float)
+                if np.random.random() < frac:
+                    N = int(N_float) + 1  # Round up with the relevant probability
+                else:
+                    N = int(N_float)
             
             # If population drops to 0 at any point, it's extinct. No further allele dynamics possible.
             if N == 0:
