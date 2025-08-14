@@ -36,7 +36,6 @@ def results_headings():
     """
     return "SimNr;Rep;Ni;r;K;N_A_fix;N_a_fix;N_B_fix;N_b_fix;s_A;s_B;attempts;h_A;h_B;p_A_i;p_B_i;Prob_A_fix;sd_A_fix;Aver_A_gen;sd_A_gen;Prob_a_fix;sd_a_fix;Aver_a_gen;sd_a_gen;Prob_B_fix;sd_B_fix;Aver_B_gen;sd_B_gen;Prob_b_fix;sd_b_fix;Aver_b_gen;sd_b_gen;Total_Gens"
 
-# ! Modified function to include pan_homoz in per-generation results headings
 def per_generation_headings():
     """
     Defines the column headings for the results_data_per_generation.txt file,
@@ -114,8 +113,8 @@ for line_num, line in enumerate(lines[1:], start=2): # start=2 for line numberin
         continue
     try:
         r = float(parts[1]) # Population growth rate per generation
-        if not (-10 <= r <= 10):
-            print(f"Error: The value of r (growth rate / generation) in line {line_num} must be between -10 and 10. Please correct.")
+        if (r <= -1):
+            print(f"Error: The value of r (growth rate / generation) in line {line_num} must be > -1. Please correct.")
             error_found = True
             continue
     except ValueError:
@@ -206,7 +205,7 @@ for line_num, line in enumerate(lines[1:], start=2): # start=2 for line numberin
     valid_data.append((Ni, r, K, s_A, attempts, h_A, p_A_i, s_B, h_B, p_B_i))  # Store validated scenario parameters
 
 if error_found:
-    print("Please correct the errors in input_data.txt and rerun the program.")
+    print("Please correct the error(s) in input_data.txt and rerun the program.")
     sys.exit(0)
 
 def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, attempts, h_A, h_B, sim_idx, rep):
@@ -225,14 +224,13 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
         attempts (int): Number of independent simulation runs for these parameters.
         h_A (float): Dominance coefficient for allele A.
         h_B (float): Dominance coefficient for allele B.
-        sim_idx (int): Simulation number (index from input_data.txt). # ! Added for per-generation output
-        rep (int): Repetition number. # ! Added for per-generation output
+        sim_idx (int): Simulation number (index from input_data.txt).
+        rep (int): Repetition number.
 
     Returns:
         tuple: A collection of aggregated statistics across all attempts, including
                fixation probabilities, average fixation times, and final population sizes.
     """
-    # ! Initialize list to store per-generation data if enabled
     per_gen_data = [] if document_results_every_generation else None
 
     # Initialize counters for aggregating results across all simulation attempts
@@ -295,7 +293,6 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
 
         # Main simulation loop: iterate through generations
         for gen in range(total_generations):
-            # ! Record per-generation data at the start of each generation
             if document_results_every_generation:
                 # Calculate genotype frequencies for Gene A
                 freq_A = p_A_t
@@ -505,7 +502,7 @@ def simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, total_generations, att
             b_fix_prob, b_fix_sd, avg_b_fix_gen, std_b_fix_gen,
             avg_total_generations,
             avg_total_N,
-            per_gen_data)  # ! Return per-generation data
+            per_gen_data)
 
 def worker(job):
     """
@@ -513,7 +510,7 @@ def worker(job):
     Unpacks job parameters, runs simulation, and returns results.
     """
     idx, rep, Ni, r, K, s_A, attempts, h_A, p_A_i, s_B, h_B, p_B_i = job
-    results = simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, generations, attempts, h_A, h_B, idx, rep)  # ! Pass idx and rep
+    results = simulate_population(Ni, r, K, s_A, p_A_i, s_B, p_B_i, generations, attempts, h_A, h_B, idx, rep)
     
     # Unpack results from simulate_population
     (avg_N_A, avg_N_a, avg_N_B, avg_N_b, 
@@ -522,7 +519,7 @@ def worker(job):
      B_fix_prob, B_fix_sd, avg_B_fix_gen, std_B_fix_gen,
      b_fix_prob, b_fix_sd, avg_b_fix_gen, std_b_fix_gen,
      avg_total_generations, avg_total_N,
-     per_gen_data) = results  # ! Include per_gen_data
+     per_gen_data) = results
 
     # Return all parameters and calculated results for this specific job
     return (idx, rep, Ni, r, K, 
@@ -533,7 +530,7 @@ def worker(job):
             B_fix_prob, B_fix_sd, avg_B_fix_gen, std_B_fix_gen,
             b_fix_prob, b_fix_sd, avg_b_fix_gen, std_b_fix_gen,
             avg_total_generations, avg_total_N,
-            per_gen_data)  # ! Include per_gen_data
+            per_gen_data)
 
 # --- Main execution block for multiprocessing ---
 if __name__ == '__main__':
@@ -557,8 +554,7 @@ if __name__ == '__main__':
     # Sorting by SimNr (x[0]) and then Repetition (x[1]) ensures that all repetitions
     # for a given scenario are grouped together.
     individual_results_sorted = sorted(results, key=lambda x: (x[0], x[1]))
-    
-    # ! Write per-generation results if enabled
+
     if document_results_every_generation:
         per_gen_filename = "results_data_per_generation.txt"
         with open(per_gen_filename, "w") as f:
